@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird Klone</title>
+    <style>
+        /* Retro esintili özel oyun stili */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #5d9ddf; /* Açık gökyüzü mavisi */
+            font-family: 'Verdana', sans-serif;
+            user-select: none; /* Metin seçmeyi engelle */
+            overflow: hidden; /* Kaydırmayı engelle */
+        }
+
+        #game-container {
+            border: 8px solid #333;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            background-color: #5d9ddf; /* Gökyüzü */
+            max-width: 90vw;
+            max-height: 90vh;
+            aspect-ratio: 1 / 1.5; /* Dikey oyun alanı */
+        }
+
+        #game-canvas {
+            display: block;
+            background-color: #70c5ce; /* Daha canlı gökyüzü rengi */
+            /* Piksel sanat görünümü için render ayarı (bazı tarayıcılarda çalışmayabilir) */
+            image-rendering: pixelated;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Başlangıçta gizli */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            z-index: 10;
+            font-size: 20px;
+            text-align: center;
+            padding: 30px; /* İçeriğe biraz daha boşluk ver */
+            gap: 15px; /* Elemanlar arasına boşluk eklendi */
+        }
+
+        .game-title {
+            font-size: 3.5em;
+            color: #ffda00;
+            text-shadow: 4px 4px 0 #d0301a, 8px 8px 0 #5d9ddf;
+            margin-bottom: 30px; /* Boşluk artırıldı */
+        }
+
+        .score-text {
+            font-size: 2em;
+            margin-bottom: 20px; /* Boşluk artırıldı */
+            text-shadow: 2px 2px 0 #333;
+        }
+
+        .info-text {
+            font-size: 1.2em;
+            margin: 10px 0;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        #restart-button, #gemini-button {
+            padding: 15px 30px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            border: 4px solid;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 5px 0;
+            transition: all 0.1s ease;
+            margin-top: 15px;
+        }
+
+        #restart-button {
+            background-color: #4CAF50;
+            border-color: #388E3C;
+            box-shadow: 0 5px 0 #388E3C;
+        }
+
+        #gemini-button {
+            background-color: #f90; /* Turuncu/Sarı */
+            border-color: #d17500;
+            box-shadow: 0 5px 0 #d17500;
+            font-size: 1.2em;
+            padding: 10px 20px;
+        }
+
+        #restart-button:hover {
+            background-color: #5cb85c;
+            box-shadow: 0 4px 0 #388E3C;
+            transform: translateY(1px);
+        }
+        
+        #gemini-button:hover {
+            background-color: #ffb84d;
+            box-shadow: 0 4px 0 #d17500;
+            transform: translateY(1px);
+        }
+
+        #restart-button:active {
+            background-color: #3e8e41;
+            box-shadow: 0 0 0 #388E3C;
+            transform: translateY(5px);
+        }
+        
+        #gemini-button:active {
+            background-color: #d17500;
+            box-shadow: 0 0 0 #d17500;
+            transform: translateY(5px);
+        }
+
+        #gemini-output {
+            font-size: 1.1em;
+            color: #ffe000;
+            margin-top: 10px;
+            min-height: 25px; /* Yer tutucu */
+            text-shadow: 1px 1px 0 #000;
+            padding: 5px;
+            max-width: 90%;
+        }
+        
+        .text-red-500 {
+            color: #ff4d4d;
+        }
+
+        /* Mobil cihazlar için font boyutları ve boşluklar ayarlandı */
+        @media (max-width: 600px) {
+            .game-title {
+                font-size: 2em; /* Font boyutu düşürüldü */
+                margin-bottom: 20px;
+            }
+            .score-text {
+                font-size: 1.3em; /* Font boyutu düşürüldü */
+                margin-bottom: 15px;
+            }
+            .info-text {
+                font-size: 0.9em; /* Font boyutu düşürüldü */
+                margin: 5px 0;
+            }
+            #restart-button, #gemini-button {
+                padding: 8px 16px;
+                font-size: 1em;
+            }
+            #gemini-output {
+                 font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <div id="ui-overlay">
+        <div class="game-title">FLAPPY GEMINI</div>
+        <div class="score-text" id="final-score">Puan: 0</div>
+        <div class="info-text" id="game-state-message">ÇARPIŞTIN!</div>
+        <div id="gemini-output"></div> <!-- Skor analizi buraya gelecek -->
+        <button id="gemini-button">✨ Skor Analizi Al ✨</button>
+        <div class="info-text">Zıplamak için BOŞLUK'a veya EKRANA dokun.</div>
+        <button id="restart-button">YENİDEN BAŞLA</button>
+    </div>
+
+    <script>
+        // Global değişkenler
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('ui-overlay');
+        const restartButton = document.getElementById('restart-button');
+        const finalScoreText = document.getElementById('final-score');
+        const gameStateMessage = document.getElementById('game-state-message');
+        
+        // Yeni Gemini API öğeleri
+        const geminiButton = document.getElementById('gemini-button');
+        const geminiOutput = document.getElementById('gemini-output');
+
+        // Sabitler
+        const GRAVITY = 0.35; // Yer çekimi gücü
+        const JUMP_VELOCITY = -5; // Zıplama gücü
+        const PIPE_SPEED = 2.5; // Boru hareket hızı
+        const PIPE_WIDTH = 50;
+        const PIPE_GAP_HEIGHT = 150;
+        const PIPE_GENERATION_INTERVAL = 90; // Frame cinsinden
+        const GRACE_PERIOD_MS = 3000; // 3 saniye hasar almama süresi
+
+        let game;
+
+        // Gemini API ayarları
+        const apiKey = ""; // Canvas ortamında otomatik sağlanacaktır
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // Rastgele sayı üreteci (min/max dahil)
+        function randRange(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // ---------- GEMINI API İŞLEVLERİ ----------
+
+        // Tekrar denemeli fetch işlemi
+        async function fetchWithRetry(url, options, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response;
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    const delay = Math.pow(2, i) * 1000;
+                    console.warn(`Request failed, retrying in ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+            throw new Error("Tüm tekrar denemeleri başarısız oldu.");
+        }
+
+        // Skor analizini Gemini API'den alma
+        async function generateGeminiMessage(score) {
+            geminiOutput.textContent = "✨ Skorunuz analiz ediliyor... (LLM Çalışıyor) ✨";
+            geminiOutput.classList.remove('text-red-500');
+
+            // Model persona ve talimatları
+            const systemPrompt = `You are a humorous, slightly condescending Flappy Bird score commentator. Based on the user's score, provide a short, one-sentence critique or observation.
+            - If score is 0-5: Be overly dramatic and mock their lack of skill.
+            - If score is 6-15: Be mildly sarcastic, suggesting they are mediocre.
+            - If score is 16+: Give them a backhanded compliment or suggest they have too much free time.
+            The response must be in Turkish and only contain the critique sentence.`;
+
+            const userQuery = `Flappy Bird'de skorum ${score} oldu. Ne düşünüyorsun?`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            try {
+                const response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Analiz başarısız oldu.";
+                geminiOutput.textContent = text;
+                
+            } catch (error) {
+                console.error("Gemini API Hatası:", error);
+                geminiOutput.textContent = "❌ Analiz yüklenemedi. (Ağ veya API Hatası)";
+                geminiOutput.classList.add('text-red-500');
+            }
+        }
+
+
+        // Kuş Sınıfı - Bir daire olarak çizilir
+        class Bird {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 12;
+                this.velocity = 0;
+                this.color = '#ffda00'; // Parlak Sarı
+                this.isInvincible = false; // Dokunulmazlık durumu
+            }
+
+            jump() {
+                if (this.y > this.radius) {
+                    this.velocity = JUMP_VELOCITY;
+                }
+            }
+
+            update() {
+                // Yer çekimi
+                this.velocity += GRAVITY;
+                this.y += this.velocity;
+
+                // Yere veya tavana çarpma
+                const groundHeight = game.groundHeight; // Game sınıfından zemin yüksekliğini al
+                if (this.y + this.radius > game.height - groundHeight) { 
+                    this.y = game.height - groundHeight - this.radius;
+                    // KULLANICI İSTEĞİ: Yere düşünce oyun bitmesin.
+                    this.velocity = 0; // Hızı sıfırla ki, zıplayana kadar yerde kalsın
+                }
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.velocity = 0;
+                }
+            }
+
+            draw() {
+                // Dokunulmazlık süresi boyunca yanıp sönme efekti
+                if (this.isInvincible) {
+                    // Her 100ms'de bir çizimi atlayarak yanıp sönme efekti oluşturur
+                    if (Math.floor(Date.now() / 100) % 2 === 0) { 
+                        return; // Çizimi atla
+                    }
+                }
+                
+                // 1. Gövde (Daire)
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 2. Kanatlar (Basit bir gölge/kontur ekleyebiliriz)
+                ctx.fillStyle = '#ff9900'; // Turuncu/Koyu Sarı
+                ctx.beginPath();
+                // Basit kanat çizimi (sağ üst)
+                ctx.moveTo(this.x, this.y - 5);
+                ctx.lineTo(this.x + 8, this.y - 12);
+                ctx.lineTo(this.x + 10, this.y);
+                ctx.closePath();
+                ctx.fill();
+
+                // 3. Göz (Küçük siyah nokta)
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(this.x + this.radius / 3, this.y - this.radius / 3, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 4. Gaga (Üçgen)
+                ctx.fillStyle = '#f69d35'; // Turuncu Gaga
+                ctx.beginPath();
+                // Kuşun sağ tarafına doğru bir üçgen çiz
+                const beakTipX = this.x + this.radius + 5;
+                const beakBaseYTop = this.y - 4;
+                const beakBaseYBottom = this.y + 4;
+                ctx.moveTo(this.x + this.radius - 2, beakBaseYTop);
+                ctx.lineTo(beakTipX, this.y);
+                ctx.lineTo(this.x + this.radius - 2, beakBaseYBottom);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        // Boru Sınıfı
+        class Pipe {
+            constructor(x, topHeight, gap) {
+                this.x = x;
+                this.width = PIPE_WIDTH;
+                this.topHeight = topHeight;
+                this.gap = gap;
+                this.bottomY = topHeight + gap;
+                this.scored = false;
+                this.color = '#4CAF50'; // Yeşil Boru
+                this.border = '#388E3C'; // Koyu Yeşil Kenarlık
+            }
+
+            update() {
+                this.x -= PIPE_SPEED;
+            }
+
+            draw() {
+                // Üst Boru
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, 0, this.width, this.topHeight);
+                // Üst Boru Kenarlığı/Şapkası
+                ctx.fillStyle = this.border;
+                ctx.fillRect(this.x - 4, this.topHeight - 20, this.width + 8, 20);
+
+                // Alt Boru
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.bottomY, this.width, game.height - this.bottomY);
+                // Alt Boru Kenarlığı/Şapkası
+                ctx.fillStyle = this.border;
+                ctx.fillRect(this.x - 4, this.bottomY, this.width + 8, 20);
+            }
+        }
+
+        // Oyun Sınıfı
+        class Game {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.groundHeight = 50; // Zemin yüksekliği sabiti
+                this.reset();
+            }
+
+            reset() {
+                this.bird = new Bird(this.width / 4, this.height / 2);
+                this.pipes = [];
+                this.score = 0;
+                this.isGameOver = false;
+                this.pipeTimer = 0;
+                this.isGameStarted = false;
+                this.startTime = 0; // Oyun başlangıç zamanı
+
+                overlay.style.display = 'flex';
+                gameStateMessage.textContent = "BAŞLAMAK İÇİN TIKLA veya BOŞLUK'a bas";
+                finalScoreText.style.display = 'none';
+                restartButton.style.display = 'none';
+                geminiButton.style.display = 'none';
+                geminiOutput.textContent = ''; // Çıktıyı temizle
+            }
+
+            // Boru oluşturma mantığı
+            generatePipe() {
+                const groundHeight = this.groundHeight; // Game sınıfından al
+                // Boru yüksekliğini rastgele ayarla
+                const minHeight = 50;
+                const maxHeight = this.height - PIPE_GAP_HEIGHT - 50 - groundHeight; // Zemin yüksekliğini düş
+                const topHeight = randRange(minHeight, maxHeight);
+
+                this.pipes.push(new Pipe(this.width, topHeight, PIPE_GAP_HEIGHT));
+            }
+
+            // Çarpışma kontrolü
+            checkCollision(pipe) {
+                const bird = this.bird;
+
+                // Kuşun boruyla aynı x aralığında olup olmadığını kontrol et
+                const isXOverlap = (bird.x + bird.radius > pipe.x) && (bird.x - bird.radius < pipe.x + pipe.width);
+
+                if (isXOverlap) {
+                    // Üst boruyla çarpışma
+                    const hitTop = (bird.y - bird.radius < pipe.topHeight);
+                    // Alt boruyla çarpışma
+                    const hitBottom = (bird.y + bird.radius > pipe.bottomY);
+
+                    if (hitTop || hitBottom) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            update() {
+                // Kuş ilk tıklamaya kadar düşmez, bu kontrol başlangıç düşüşünü engeller.
+                if (this.isGameOver || !this.isGameStarted) return; 
+                
+                // Dokunulmazlık kontrolü
+                const currentTime = Date.now();
+                const isGracePeriodActive = currentTime - this.startTime < GRACE_PERIOD_MS;
+                this.bird.isInvincible = isGracePeriodActive;
+
+                this.bird.update();
+
+                // Boru oluşturma
+                this.pipeTimer++;
+                // Boruların 3 saniyeden sonra gelmeye başlaması için kontrol ekle
+                if (isGracePeriodActive && this.pipeTimer < PIPE_GENERATION_INTERVAL) {
+                    // Dokunulmazlık süresi boyunca boru oluşumunu geciktir
+                } else if (this.pipeTimer >= PIPE_GENERATION_INTERVAL * (this.width / 500)) { // Ekran boyutuna göre boru aralığını ayarla
+                    this.generatePipe();
+                    this.pipeTimer = 0;
+                }
+
+                // Boruları güncelle ve çarpışmaları kontrol et
+                for (let i = this.pipes.length - 1; i >= 0; i--) {
+                    const pipe = this.pipes[i];
+                    pipe.update();
+
+                    // Kuş boruya çarptı mı? (Dokunulmazlık varsa çarpışma kontrolü atlanır)
+                    if (!isGracePeriodActive && this.checkCollision(pipe)) {
+                        this.isGameOver = true;
+                        break;
+                    }
+
+                    // Puanlama: Kuş borunun x'ini geçti mi?
+                    if (!pipe.scored && pipe.x + PIPE_WIDTH < this.bird.x - this.bird.radius) {
+                        this.score++;
+                        pipe.scored = true;
+                    }
+
+                    // Boru ekran dışına çıktıysa kaldır
+                    if (pipe.x + pipe.width < 0) {
+                        this.pipes.splice(i, 1);
+                    }
+                }
+
+                // Oyun bittiyse ekranı göster
+                if (this.isGameOver) {
+                    this.showGameOverScreen();
+                }
+            }
+
+            draw() {
+                // Arka planı temizle (Gökyüzü)
+                ctx.fillStyle = '#70c5ce';
+                ctx.fillRect(0, 0, this.width, this.height);
+
+                // Boruları çiz
+                this.pipes.forEach(pipe => pipe.draw());
+
+                // Kuşu çiz
+                this.bird.draw();
+
+                // Zemin (Çimen)
+                const groundHeight = this.groundHeight;
+                ctx.fillStyle = '#ded895'; // Zemin rengi
+                ctx.fillRect(0, this.height - groundHeight, this.width, groundHeight);
+                ctx.strokeStyle = '#8d784a'; // Zemin kenarlığı
+                ctx.lineWidth = 5;
+                ctx.strokeRect(0, this.height - groundHeight, this.width, groundHeight);
+
+                // Puanı çiz
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 3;
+                ctx.font = 'bold 32px "Verdana", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.strokeText(this.score, this.width / 2, 50);
+                ctx.fillText(this.score, this.width / 2, 50);
+
+                if (!this.isGameStarted && !this.isGameOver) {
+                     // Başlangıç ekranı metni
+                    ctx.fillStyle = 'white';
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                    ctx.font = 'bold 24px "Verdana", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.strokeText("Tıklayın veya BOŞLUK'a basın", this.width / 2, this.height / 3);
+                    ctx.fillText("Tıklayın veya BOŞLUK'a basın", this.width / 2, this.height / 3);
+                }
+                
+                // Dokunulmazlık süresi göstergesi
+                if (this.isGameStarted && this.bird.isInvincible) {
+                    const timeRemaining = Math.ceil((this.startTime + GRACE_PERIOD_MS - Date.now()) / 1000);
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 16px "Verdana", sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`DOKUNULMAZLIK: ${timeRemaining}s`, 10, 20);
+                }
+            }
+
+            showGameOverScreen() {
+                gameStateMessage.textContent = "ÇARPIŞTIN!";
+                finalScoreText.style.display = 'block';
+                finalScoreText.textContent = `Puanın: ${this.score}`;
+                restartButton.style.display = 'block';
+                geminiButton.style.display = 'block'; // Gemini butonunu göster
+                overlay.style.display = 'flex';
+                
+                // Skor analizini otomatik olarak başlat
+                generateGeminiMessage(this.score); 
+            }
+        }
+
+        // Oyun Döngüsü
+        function gameLoop() {
+            if (!game.isGameOver) {
+                game.update();
+                game.draw();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // ---------- Olay Dinleyicileri ve Başlatma ----------
+
+        // Tuş/Tıklama işleyici
+        function handleInput() {
+            if (!game.isGameStarted) {
+                game.isGameStarted = true;
+                game.startTime = Date.now(); // Oyun başladığında zamanı kaydet
+                overlay.style.display = 'none';
+                // Oyun döngüsünü başlat
+                gameLoop();
+            }
+
+            if (!game.isGameOver) {
+                game.bird.jump();
+            }
+        }
+
+        // BOŞLUK tuşu için
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.repeat) {
+                e.preventDefault(); // Sayfanın kaymasını engelle
+                handleInput();
+            }
+        });
+
+        // Tıklama/Dokunma için (Tüm doküman gövdesini dinle, böylece overlay üzerindeki tıklamalar da çalışır)
+        document.body.addEventListener('click', handleInput);
+        document.body.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleInput();
+        });
+
+
+        // Yeniden Başlatma butonu
+        restartButton.addEventListener('click', () => {
+            game.reset();
+            // Başlangıç ekranı görünümünü tekrar ayarla
+            overlay.style.display = 'flex';
+            gameStateMessage.textContent = "BAŞLAMAK İÇİN TIKLA veya BOŞLUK'a bas";
+            finalScoreText.style.display = 'none';
+            restartButton.style.display = 'none';
+            geminiButton.style.display = 'none';
+            geminiOutput.textContent = ''; // Çıktıyı temizle
+        });
+        
+        // Gemini butonu dinleyicisi
+        geminiButton.addEventListener('click', () => {
+            // Butona tıklandığında analizi yeniden yükle
+            generateGeminiMessage(game.score);
+        });
+
+
+        // Boyutlandırma işlevi
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            // Oyun alanını dikey formata uygun bir kare/dikdörtgen olarak ayarla
+            const containerWidth = container.clientWidth;
+            // 1 / 1.5 oranı kullanıyoruz
+            const targetHeight = containerWidth * 1.5;
+
+            // Ekran yüksekliğini kontrol et
+            if (targetHeight > window.innerHeight * 0.9) {
+                const maxAllowedHeight = window.innerHeight * 0.9;
+                canvas.height = maxAllowedHeight;
+                canvas.width = maxAllowedHeight / 1.5;
+            } else {
+                canvas.width = containerWidth;
+                canvas.height = targetHeight;
+            }
+
+            // Eğer oyun başlatılmamışsa veya bitmişse, yeniden başlat
+            if (game) {
+                 game.width = canvas.width;
+                 game.height = canvas.height;
+                 game.bird.x = game.width / 4; // Kuş pozisyonunu yeniden hesapla
+                 game.bird.y = game.height / 2;
+                 game.draw(); // Hemen çizimi güncelle
+            }
+
+            // UI katmanını kanvas ile aynı boyuta getir
+            overlay.style.width = `${canvas.width}px`;
+            overlay.style.height = `${canvas.height}px`;
+            overlay.style.top = `${canvas.offsetTop}px`;
+            overlay.style.left = `${canvas.offsetLeft}px`;
+        }
+
+        // Pencere yüklendiğinde ve yeniden boyutlandırıldığında çalıştır
+        window.onload = function() {
+            resizeCanvas();
+            // Oyunu başlat (Yeniden boyutlandırma içinde boyutlar ayarlandığı için)
+            game = new Game(canvas.width, canvas.height);
+            window.addEventListener('resize', resizeCanvas);
+
+            // Başlangıçta çizimi yap
+            game.draw();
+        }
+
+    </script>
+</body>
+</html>
